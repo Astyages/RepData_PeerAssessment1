@@ -1,11 +1,9 @@
 ---
-<<<<<<< HEAD
 title: "Programming Assignment 1"
 author: "N. G. Schwarz"
 date: "Wednesday, June 10, 2015"
 output: html_document
 ---
-
 
 ## Introduction
 This assignment makes use of data from a personal activity monitoring device. This device collects data of number of steps taken at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November 2012.
