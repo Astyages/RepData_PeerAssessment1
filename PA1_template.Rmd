@@ -2,7 +2,7 @@
 title: "Programming Assignment 1"
 author: "N. G. Schwarz"
 date: "Wednesday, June 10, 2015"
-output: html_document
+output: md_document
 ---
 
 ## Introduction
@@ -330,3 +330,4 @@ mtext("Interval", 1, 2)
 ```
     
 There is a noticeable increase in the height of peaks across all intervals for the weekend activity. The number of steps during the weekend also as sharper valleys, meaning the time (in 5-minute intervals) spent taking less steps is clearly reduced. Observe the valley between intervals 100 and 150. The weekday panel has a clear descent, stable valley, and the ascend into another pear. On the contrary, the weekend panel has a very rapid descent, short valley, ascend to another peak, and many mini peaks and valleys before the next great ascend around interval 150. This same difference in sharpness of average steps per interval can be observed around the 200 inteval. The only case where weekday proves more activity than weekend is around the 225 interval. Other than this, weekends are definitely more active.
+
