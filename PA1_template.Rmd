@@ -1,0 +1,333 @@
+---
+title: "Programming Assignment 1"
+author: "N. G. Schwarz"
+date: "Wednesday, June 10, 2015"
+output: html_document
+---
+
+
+## Introduction
+This assignment makes use of data from a personal activity monitoring device. This device collects data of number of steps taken at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November 2012.
+
+The following analysis works on answering a few key exploratory questions:
+
+- What is mean, median, and total number of steps taken per day?
+- What is the average daily activity pattern?
+- How to impute missing values?
+- What differences are there between the original and imputed data?
+- Are there differences in activity patterns between weekdays and weekends?
+
+## Analysis
+
+### Preprocessing
+
+#### Reading Data
+Downloading and reading the activity monitoring data 
+
+```{r, warning=FALSE}
+URL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(URL, "zip", method = "curl")
+file <- unzip("zip")
+A <- read.csv(file)
+```
+
+#### NA Values
+Ignoring NA Values in entire dataset
+
+```{r}
+A0 <- na.omit(A)
+A0$date <- droplevels(A0$date)
+```
+
+**Note**, as consequence of removing NA values, the following days were completely removed from Date column in 'A0', as they had only NA values. These days will not taken into account for the first calculations of this assignment.
+
+```{r}
+days.kept <- which(unique(A$date) %in% unique(A0$date))
+days.removed <- as.Date(unique(A$date)[-days.kept])
+days.removed
+```
+
+### Calculations on Number of Steps per Day
+
+#### Total Steps
+Calculating the total number of steps taken per day
+
+```{r}
+totalByday <- aggregate(A0$steps, list(A0$date), sum)
+colnames(totalByday) <- c("Date", "Total Steps")
+totalByday
+```
+
+#### Histogram 
+Plotting a histogram of the total number of steps taken each day
+
+```{r}
+hist(totalByday[, "Total Steps"], 
+     main = "Frequency of Total Number of Steps taken each Day",
+     xlab = "Total Steps each Day")
+```
+
+#### Mean Steps
+Calculating the mean of the total number of steps taken per day
+
+```{r}
+meanByday <- aggregate(A0$steps, list(A0$date), mean)
+colnames(meanByday) <- c("Date", "Mean Steps")
+meanByday[, "Mean Steps"] <- round(meanByday[, "Mean Steps"], 2)
+meanByday
+```
+
+#### Median Steps
+Calculating the median of the total number of steps taken per day
+
+```{r}
+medianByday <- aggregate(A0$steps, list(A0$date), median)
+colnames(medianByday) <- c("Date", "Median Steps")
+medianByday
+```
+
+**Note**, median values are all zero (0). This might seem strange given the mean calculations were not near zero (0). It is important to recall that the median is the center value of an ordered distribution. This dataset has an overwhelming predominance of zeros in the distrubion of steps taken.
+
+```{r}
+hist(A0$steps, breaks = 100, xlab = "Number of Steps",
+     main = "Frequency of Number of Steps in 8-step Intervals")
+
+```
+
+And even when zooming into the first 200 steps, to get a better picture of the gross of the distribution, steps not taken (0) are outpacingly more frequent than other values.
+
+```{r}
+hist(A0$steps, breaks = 100, xlim = c(0, 200), xlab = "Number of Steps",
+     main = "Frequency of Number of Steps (between 0 and 200 steps) 
+     in 2-step Intervals")
+
+```
+
+Evidently, there are enough zeros for the distribution of steps per day, when ordered, to have a zero in its middle value, or median. 
+
+### Daily Activity Pattern
+
+#### Time Series Plot
+Making a time series plot of the 5-minute interval (x-axis) and the average 
+number of steps taken, averaged across all days (y-axis)
+
+```{r}
+meanByinterval <- aggregate(A0$steps, list(A0$interval), mean)
+colnames(meanByinterval) <- c("Interval", "Mean Steps")
+meanByinterval[, "Mean Steps"] <- round(meanByinterval[, "Mean Steps"], 2)
+plot(meanByinterval, type = "l", 
+     main = "Average number of steps taken per daily intervals, 
+     averaged across all days")
+points(x=835, y=206.17)
+text(x=835, y=206.17, "x=835, y=206.17",pos=4, cex=0.8)
+```
+
+#### Greatest Step Interval
+Finding the 5-minute interval which, on average across all the days in the 
+dataset, contains the maximum number of steps
+
+```{r}
+max <- which.max(meanByinterval[, "Mean Steps"])
+meanByinterval[max, ]
+```
+
+### Imputing Missing Values and Comparing Imputed to Omitted Datasets
+
+#### Reporting Missing Values
+Calculating and reporting the total number of missing values in steps
+
+```{r}
+sum(is.na(A$steps))
+```
+
+#### Imputation Method Selection
+
+Imputation methods, such as regression imputation, offer more precise values
+(less noisy) than simpler methods. Unfortunately most multiple and stochastic 
+imputation techniques require multiple variables useful for predicting the 
+missing value. These methods are not applicable for a data set that only has one numeric variable 'steps' and two variables 'date' and 'interval' that do not offer  numerical information in terms of 'steps'. Both are practically categorical values.
+
+Three other methods are possible. For one, the median value of steps per interval or days. As seen before, the median values by both interval and date grouping would lead to impute 0 values in all NA values. 
+
+```{r}
+head(aggregate(A0$steps, list(A0$date), median), 5)
+head(aggregate(A0$steps, list(A0$interval), median), 5)
+
+```
+
+Another possibility is to use the mean value of steps per days. This method 
+carries great error (standard deviation) as throughout the day the steps per 
+interval behave very differently. It is simply illogical to impute a mean value
+for an entire day in the space of a 5 minute interval missing value.
+
+```{r}
+head(aggregate(A0$steps, list(A0$date), sd), 5)
+```
+
+Lastly, the best method available is to calculate the mean value of steps per 
+interval across all days, just as was shown in the prior time series plot. 
+Here, the variation between intervals is much lower. 
+
+```{r}
+head(aggregate(A0$steps, list(A0$interval), sd), 5)
+```
+
+It is pressumable then that activity (steps) throughout the day is similar from
+on day to the next, making this method the most appropiate and logical to impute 
+missing values (NA).
+
+#### Missing Value Imputation 
+
+The row location of the NAs and their respective interval are determined. 
+
+```{r}
+nas <- which(is.na(A$steps))
+int <- A[nas, "interval"]
+```
+
+Then, the mean per according interval (calculated previously into object 
+'meanByinterval') is saved in another vector.
+
+```{r}
+mean <- sapply(int, function(x) {
+  subset(meanByinterval, Interval == x, "Mean Steps")
+  })
+mean <- as.vector(unlist(mean))
+```
+
+Finally, each NA value has its according mean per interval value imputed in a 
+new dataset called 'A1'.
+
+```{r}
+A1 <- A
+A1[nas, ]$steps <- mean
+```
+
+#### Difference between 'A0' (missing values omitted) and 'A1' (missing values imputed) 
+The following graphs and statistics on 'A1' (dataset with imputed missing values) are compared to the previous plots and calculations in order to compare the effect of missing value imputation.
+
+#### Comparing Histograms 
+Plotting two histograms of the total number of steps taken each day
+
+```{r}
+par(mfrow = c(1, 2))
+totalByday.1 <- aggregate(A1$steps, list(A1$date), sum)
+colnames(totalByday.1) <- c("Date", "Total Steps")
+hist(totalByday.1[, "Total Steps"],
+     xlab = "", 
+     main = "",
+     ylim = c(0,40))
+title("A1 (missing values imputed)", cex.main = 0.75,line = 0)
+
+totalByday <- aggregate(A0$steps, list(A0$date), sum)
+colnames(totalByday) <- c("Date", "Total Steps")
+hist(totalByday[, "Total Steps"],
+     xlab = "", 
+     main = "",
+     ylim = c(0,40))
+title("A0 (missing values omitted)", cex.main = 0.75,line = 0)
+
+par(mfrow = c(1, 1))
+mtext("Frequency of Total Number of Steps taken each Day", side = 3, line = 2)
+mtext("Total Steps each Day", side = 1, line = 3)
+```
+
+#### Comparing Mean and Median
+Reporting the mean and median of the total number of steps per day for 'A0' and 
+'A1'.
+
+```{r echo=FALSE}
+nrowA <- nrow(A)
+nrowA0 <- nrow(A0)
+```
+
+**Note**: In order to compare mean and median, merging the 
+both datasets by the 'date' column is useful. However, the omission of rows with 
+NA values caused dataset 'A0' to shrink from `r nrowA` to `r nrowA0` rows. 
+Dataset 'A' was used for these calculations, instead of 'A0', in order to pair up the rows perfectly by date. 
+
+#### Comparing Mean
+
+```{r}
+meanByday <- aggregate(A$steps, list(A$date), mean)
+colnames(meanByday) <- c("Date", "Mean Steps")
+meanByday[, "Mean Steps"] <- round(meanByday[, "Mean Steps"], 2)
+
+meanByday.1 <- aggregate(A1$steps, list(A1$date), mean)
+colnames(meanByday.1) <- c("Date", "Mean Steps with Imputation")
+meanByday.1[, "Mean Steps with Imputation"] <- round(meanByday.1[, "Mean Steps with Imputation"], 2)
+
+merge(meanByday, meanByday.1, by="Date")
+
+```
+
+#### Comparing Median
+
+```{r}
+medianByday <- aggregate(A$steps, list(A$date), median)
+colnames(medianByday) <- c("Date", "Median Steps")
+medianByday[, "Median Steps"] <- round(medianByday[, "Median Steps"], 2)
+
+medianByday.1 <- aggregate(A1$steps, list(A1$date), median)
+colnames(medianByday.1) <- c("Date", "Median Steps with Imputation")
+medianByday.1[, "Median Steps with Imputation"] <- round(medianByday.1[, "Median Steps with Imputation"], 2)
+
+merge(medianByday, medianByday.1, by="Date")
+
+```
+
+Both the median and mean value for 'A1' do not differ from the original dataset 'A'. All values are identical, expect for, of course, the NA values which are now imputed values. This suggests that all NA values were found in entire days, not spread apart between days. (Remember, the mean and median were aggregated based on each day.) This congruent with the previous observation that, when NA values where omitted from 'A' into 'A0', entire days were excluded. This imputation proves unproblematic for the mean calculation, but not for the median. For the median, it does not take into account the overwhelming number of zeros found in other days, because the only values imputed were the mean steps per interval. Thus, this imputation is not efficient for the median. For the mean, given it is a central statistic that prioritizes the weight of observations over their position (order), the imputed values are reasonable to the behaviour of all other days.       
+
+### Differences between weekdays and weekends
+
+#### Calling each day by Week Type
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend”
+
+
+```{r}
+week <- function(x) {
+  y <- vector()
+if(weekdays(as.Date(x)) == "Saturday") {
+      y <- c(y, "weekend")
+  } else if(weekdays(as.Date(x)) == "Sunday") {
+      y <- c(y, "weekend")
+  } else {
+      y <- c(y, "weekday")
+  }
+return(y)
+}
+
+w <- as.factor(sapply(A1$date, week))
+A1[, "weektype"] <- w    
+    
+```
+
+#### Comparing weekdays and weekends activity
+Plotting a paneled time series plot to compare the steps per interval, averaged across days, between weekdays and weekends.
+
+```{r}
+
+meanByweektype <- aggregate(A1$steps, list(A1$interval, A1$weektype), mean)
+colnames(meanByweektype) <- c("Interval", "Week_Type", "Mean Steps")
+meanByweekday <- subset(meanByweektype, Week_Type == "weekday")
+meanByweekend <- subset(meanByweektype, Week_Type == "weekend")
+
+par(mfrow = c(2, 1))
+par(mar = c(0, 0, 1.5, 0), oma = c(4, 4, 2.5, 2))
+plot(meanByweekday[, "Mean Steps"], type = "l", col = "green", axes = F) 
+box()
+mtext("weekday", 3)
+axis(side = 4)
+axis(side = 1, labels = F)
+plot(meanByweekend[, "Mean Steps"], type = "l", col = "blue", ylim = c(0, 200))
+mtext("weekend", 3)
+
+par(mfrow = c(1, 1))
+title("Average number of steps taken per daily intervals, 
+      averaged across all days, and divided between week type", line = 0, outer = T)
+mtext("Mean Steps", 2, 2)
+mtext("Interval", 1, 2)
+
+```
+    
+There is a noticeable increase in the height of peaks across all intervals for the weekend activity. The number of steps during the weekend also as sharper valleys, meaning the time (in 5-minute intervals) spent taking less steps is clearly reduced. Observe the valley between intervals 100 and 150. The weekday panel has a clear descent, stable valley, and the ascend into another pear. On the contrary, the weekend panel has a very rapid descent, short valley, ascend to another peak, and many mini peaks and valleys before the next great ascend around interval 150. This same difference in sharpness of average steps per interval can be observed around the 200 inteval. The only case where weekday proves more activity than weekend is around the 225 interval. Other than this, weekends are definitely more active.
